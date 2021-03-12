@@ -1,6 +1,9 @@
 package auth
 
 import (
+	"os"
+
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -210,11 +213,66 @@ func (a *AuthHandler) Authenticate(userName string, password string) (successful
 	return successful, error
 }
 
+// Try to get secret string from environment of host machine
+// If nothing can be found return error
+func (a *AuthHandler) GetSecretForJWTGeneration() (secret string) {
+	secret = os.Getenv("SECRET")
+	return secret
+}
+
+// GenerateJWT : generate JWT token for user with secret and store it in user
+func (a *AuthHandler) GenerateJWT(user *User) (successful bool, error error) {
+	// get secret
+	secret := a.GetSecretForJWTGeneration()
+
+	// if secret is set, generate jwt token
+	// otherwise exit with error
+	if secret != "" {
+
+		// create token
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"UserName": user.UserName,
+			"Test":     "Hello World",
+		})
+
+		// sign token
+		signedToken, error := token.SignedString([]byte(secret))
+		if error != nil {
+			successful = false
+			error = LogNewError(error.Error())
+		} else {
+			successful = true
+			error = nil
+		}
+
+		user.AccessToken = signedToken
+
+	} else {
+		successful = false
+		error = LogNewError("Error : No Secret for JWT generation set!")
+	}
+
+	return successful, error
+
+}
+
+// LogIn : Try to login user with given credentials and after successful login
+//         try to generate JWT for further authentication
 func (a *AuthHandler) LogIn(userName string, password string) (successful bool, error error) {
 
 	successful, error = a.PreLogInCheck(userName, password)
+
+	// if pre checks were successful try to
+	// authenticate with given user name and password
 	if successful {
 		successful, error = a.Authenticate(userName, password)
+	}
+
+	// if authentication was successful
+	// try to generate JWT token
+	if successful {
+		user, _ := a.GetUserByUserName(userName)
+		successful, error = a.GenerateJWT(user)
 	}
 
 	return successful, error

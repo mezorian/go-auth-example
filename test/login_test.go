@@ -1,15 +1,22 @@
 package main
 
 import (
+	"os"
 	"testing"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/mezorian/go-auth-example/pkg/auth"
 	"github.com/stretchr/testify/assert"
 )
 
-// Test Event for correct attribute setting
+func setUpTestEnvironment() {
+	// generate jwt
+	os.Setenv("SECRET", "super_secret_example_text")
+}
 
 func TestLoginUpReturnsFalseAndErrorMessageForEmptyInputValues(t *testing.T) {
+	setUpTestEnvironment()
+
 	testCaseValues := []struct {
 		username string
 		password string
@@ -28,6 +35,8 @@ func TestLoginUpReturnsFalseAndErrorMessageForEmptyInputValues(t *testing.T) {
 }
 
 func TestLoginUpReturnsFalseForNonExistingUsers(t *testing.T) {
+	setUpTestEnvironment()
+
 	testCaseValues := []struct {
 		username string
 		password string
@@ -46,6 +55,8 @@ func TestLoginUpReturnsFalseForNonExistingUsers(t *testing.T) {
 }
 
 func TestLoginOnlySuccesfulForCorrectPasswords(t *testing.T) {
+	setUpTestEnvironment()
+
 	testCaseValues := []struct {
 		username        string
 		correctPassword string
@@ -76,6 +87,8 @@ func TestLoginOnlySuccesfulForCorrectPasswords(t *testing.T) {
 }
 
 func TestLoginDoesNotWorkWithThePasswordsOfOtherUsers(t *testing.T) {
+	setUpTestEnvironment()
+
 	testCaseValues := []struct {
 		username string
 		password string
@@ -108,6 +121,8 @@ func TestLoginDoesNotWorkWithThePasswordsOfOtherUsers(t *testing.T) {
 }
 
 func TestLoginWorksEvenIfSomeUsersHaveTheSamePasswords(t *testing.T) {
+	setUpTestEnvironment()
+
 	testCaseValues := []struct {
 		username string
 		password string
@@ -133,5 +148,40 @@ func TestLoginWorksEvenIfSomeUsersHaveTheSamePasswords(t *testing.T) {
 		success, error := authH.LogIn(testCaseValue.username, testCaseValue.password)
 		assert.Equal(t, true, success)
 		assert.Equal(t, nil, error)
+	}
+}
+
+func TestLoginReturnsValidJWToken(t *testing.T) {
+	setUpTestEnvironment()
+
+	testCaseValues := []struct {
+		username string
+		password string
+	}{
+		{"admin", "admin"},
+		{"peter", "supersecret"},
+		{"anna", "password"},
+	}
+	authH := auth.NewAuthHandler()
+
+	for _, testCaseValue := range testCaseValues {
+		success, error := authH.SignUp(testCaseValue.username, testCaseValue.password)
+		assert.Equal(t, success, true)
+		assert.Equal(t, error, nil)
+	}
+
+	for _, testCaseValue := range testCaseValues {
+		secret := os.Getenv("SECRET")
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"UserName": testCaseValue.username,
+			"Test":     "Hello World",
+		})
+
+		tokenString, _ := token.SignedString([]byte(secret))
+		success, error := authH.LogIn(testCaseValue.username, testCaseValue.password)
+		assert.Equal(t, success, true)
+		assert.Equal(t, error, nil)
+		user, _ := authH.GetUserByUserName(testCaseValue.username)
+		assert.Equal(t, tokenString, user.AccessToken)
 	}
 }
