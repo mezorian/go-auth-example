@@ -194,19 +194,15 @@ func (a *AuthHandler) Authenticate(userName string, password string) (successful
 	// if user is existing try to validate the password
 	// if not exit with error
 	if user != nil {
-		println("found user")
 		comparisonError := bcrypt.CompareHashAndPassword([]byte(user.HashedPassword), []byte(password))
 		if comparisonError == nil {
-			println("no comparison error for password " + password)
 			successful = true
 			error = nil
 		} else {
-			println("!comparison error")
 			successful = false
 			error = LogNewError("Error : Please enter a valid username and password!")
 		}
 	} else {
-		println("user not found error")
 		successful = false
 		error = LogNewError("Error : Please enter a valid username and password!")
 	}
