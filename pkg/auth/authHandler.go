@@ -224,9 +224,6 @@ func (a *AuthHandler) AuthenticateByJWT(JWT string) (bool, error) {
 			successful = false
 			err = LogNewError("Error : Authentication Failed. JWT AccessToken is not valid!")
 		}
-
-		successful = true
-		err = nil
 	} else {
 		successful = false
 		err = LogNewError("Error : Authentication Failed. JWT AccessToken is not valid!")
