@@ -190,7 +190,53 @@ func (a *AuthHandler) PreLogInCheck(userName string, password string) (successfu
 	return successful, error
 }
 
-func (a *AuthHandler) Authenticate(userName string, password string) (successful bool, error error) {
+func (a *AuthHandler) AuthenticateByJWT(JWT string) (bool, error) {
+	var successful bool
+	var err error
+
+	secret := []byte(a.GetSecretForJWTGeneration())
+
+	// try to parse JWT / check if JWT is in a valid format
+	token, err := jwt.Parse(JWT, func(token *jwt.Token) (interface{}, error) {
+		// check token signing method etc
+		return secret, nil
+	})
+
+	// if parsing was successful try get claims
+	// otherwise exit with error
+	if err == nil {
+		claims, ok := token.Claims.(jwt.MapClaims)
+
+		// if getting claims is successful try to get
+		// corresponding user and compare JWTs
+		if ok {
+			// todo add error handling here
+			username, _ := claims["UserName"].(string)
+			user, _ := a.GetUserByUserName(string(username))
+			if JWT == user.AccessToken {
+				successful = true
+				err = nil
+			} else {
+				successful = false
+				err = LogNewError("Error : Authentication Failed. JWT AccessToken is not valid!")
+			}
+		} else {
+			successful = false
+			err = LogNewError("Error : Authentication Failed. JWT AccessToken is not valid!")
+		}
+
+		successful = true
+		err = nil
+	} else {
+		successful = false
+		err = LogNewError("Error : Authentication Failed. JWT AccessToken is not valid!")
+	}
+
+	return successful, err
+
+}
+
+func (a *AuthHandler) AuthenticateByPassword(userName string, password string) (successful bool, error error) {
 	// try to get user by user name
 	user, _ := a.GetUserByUserName(userName)
 
@@ -265,7 +311,7 @@ func (a *AuthHandler) LogIn(userName string, password string) (successful bool, 
 	// if pre checks were successful try to
 	// authenticate with given user name and password
 	if successful {
-		successful, error = a.Authenticate(userName, password)
+		successful, error = a.AuthenticateByPassword(userName, password)
 	}
 
 	// if authentication was successful
