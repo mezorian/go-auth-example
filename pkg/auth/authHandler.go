@@ -212,10 +212,20 @@ func (a *AuthHandler) AuthenticateByJWT(JWT string) (bool, error) {
 		if ok {
 			// todo add error handling here
 			username, _ := claims["UserName"].(string)
-			user, _ := a.GetUserByUserName(string(username))
-			if JWT == user.AccessToken {
-				successful = true
-				err = nil
+			user, errorFindingUser := a.GetUserByUserName(string(username))
+			// check if there was an error while getting the username
+			// which was found in the claims. If no error exists the
+			// user is a valid known user. If the user is not existing
+			// there seems to be something wrong with the claims. In this
+			// case we exit with an error
+			if errorFindingUser == nil {
+				if JWT == user.AccessToken {
+					successful = true
+					err = nil
+				} else {
+					successful = false
+					err = LogNewError("Error : Authentication Failed. JWT AccessToken is not valid!")
+				}
 			} else {
 				successful = false
 				err = LogNewError("Error : Authentication Failed. JWT AccessToken is not valid!")
