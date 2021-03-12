@@ -65,7 +65,7 @@ func TestSignUpCreatesNewUserInAuthHandler(t *testing.T) {
 		assert.NotEqual(t, user, nil)
 		assert.Equal(t, error, nil)
 		assert.Equal(t, user.UserName, testCaseValue.username)
-		err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(testCaseValue.password))
+		err := bcrypt.CompareHashAndPassword([]byte(user.HashedPassword), []byte(testCaseValue.password))
 		assert.Equal(t, err, nil)
 	}
 }
@@ -90,7 +90,7 @@ func TestSignUpDoesNotAllowTwoTimesTheSameUserName(t *testing.T) {
 		assert.NotEqual(t, user, nil)
 		assert.Equal(t, error, nil)
 		assert.Equal(t, user.UserName, testCaseValue.username)
-		err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(testCaseValue.password))
+		err := bcrypt.CompareHashAndPassword([]byte(user.HashedPassword), []byte(testCaseValue.password))
 		assert.Equal(t, err, nil)
 		// do second sign up (which fails)
 		success, error = authH.SignUp(testCaseValue.username, testCaseValue.password)

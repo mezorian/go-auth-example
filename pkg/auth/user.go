@@ -1,7 +1,7 @@
 package auth
 
 type User struct {
-	ID       string
-	UserName string
-	Password string
+	ID             string
+	UserName       string
+	HashedPassword string
 }

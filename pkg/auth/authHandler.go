@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"errors"
-
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -30,10 +28,10 @@ func (a *AuthHandler) GetUserByUserName(userName string) (user *User, error erro
 	if userID, userIDFound := a.userIDsByUserName[userName]; userIDFound {
 		user = a.UsersByID[*userID]
 		if user == nil {
-			error = errors.New("Error : No user found for ID : '" + *userID + "' !")
+			error = LogNewError("Error : No user found for ID : '" + *userID + "' !")
 		}
 	} else {
-		error = errors.New("Error : No user found for UserName : '" + userName + "' !")
+		error = LogNewError("Error : No user found for UserName : '" + userName + "' !")
 	}
 
 	return user, error
@@ -100,7 +98,7 @@ func (a *AuthHandler) CheckIfUserNameIsFree(userName string) (successful bool, e
 		error = nil
 	} else {
 		successful = false
-		error = errors.New("Error : Username '" + userName + "' already used. Please choose a different Username!")
+		error = LogNewError("Error : Username '" + userName + "' already used. Please choose a different Username!")
 	}
 
 	return successful, error
@@ -115,7 +113,7 @@ func (a *AuthHandler) PreSignUpCheck(userName string, password string) (successf
 		error = nil
 	} else {
 		successful = false
-		error = errors.New("Error : Please enter a valid username and password!")
+		error = LogNewError("Error : Please enter a valid username and password!")
 	}
 
 	// TODO : from here --> continue with User and password rule
@@ -146,12 +144,12 @@ func (a *AuthHandler) CreateNewUser(userName string, password string) (successfu
 	// hash and set password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err == nil {
-		user.Password = string(hashedPassword)
+		user.HashedPassword = string(hashedPassword)
 		successful = true
 		error = nil
 	} else {
 		successful = false
-		error = errors.New("Error : Unable to hash password for user '" + userName + "' !")
+		error = LogNewError("Error : Unable to hash password for user '" + userName + "' !")
 	}
 
 	// add new user to user maps
@@ -169,6 +167,58 @@ func (a *AuthHandler) SignUp(userName string, password string) (successful bool,
 	successful, error = a.PreSignUpCheck(userName, password)
 	if successful {
 		successful, error = a.CreateNewUser(userName, password)
+	}
+
+	return successful, error
+}
+
+// PreLogInCheck : Do pre checks to verify if login can be performed
+func (a *AuthHandler) PreLogInCheck(userName string, password string) (successful bool, error error) {
+
+	// check if user name or password is not empty
+	if len(userName) > 0 && len(password) > 0 {
+		successful = true
+		error = nil
+	} else {
+		successful = false
+		error = LogNewError("Error : Please enter a valid username and password!")
+	}
+
+	return successful, error
+}
+
+func (a *AuthHandler) Authenticate(userName string, password string) (successful bool, error error) {
+	// try to get user by user name
+	user, _ := a.GetUserByUserName(userName)
+
+	// if user is existing try to validate the password
+	// if not exit with error
+	if user != nil {
+		println("found user")
+		comparisonError := bcrypt.CompareHashAndPassword([]byte(user.HashedPassword), []byte(password))
+		if comparisonError == nil {
+			println("no comparison error for password " + password)
+			successful = true
+			error = nil
+		} else {
+			println("!comparison error")
+			successful = false
+			error = LogNewError("Error : Please enter a valid username and password!")
+		}
+	} else {
+		println("user not found error")
+		successful = false
+		error = LogNewError("Error : Please enter a valid username and password!")
+	}
+
+	return successful, error
+}
+
+func (a *AuthHandler) LogIn(userName string, password string) (successful bool, error error) {
+
+	successful, error = a.PreLogInCheck(userName, password)
+	if successful {
+		successful, error = a.Authenticate(userName, password)
 	}
 
 	return successful, error
