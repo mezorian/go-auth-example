@@ -1,9 +1,175 @@
 package auth
 
+import (
+	"errors"
+
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
+)
+
 type AuthHandler struct {
+	passwordRuleRegex string
+	userNameRuleRegex string
+	UsersByID         map[string]*User
+	userIDsByUserName map[string]*string
 }
 
-// SignUp / register a new user
-func (a *AuthHandler) SignUp(username string, password string) (bool, string) {
-	return false, "Error : Please enter a valid username and password!"
+func NewAuthHandler() *AuthHandler {
+	authH := new(AuthHandler)
+	authH.passwordRuleRegex = ""
+	authH.userNameRuleRegex = ""
+	authH.UsersByID = make(map[string]*User)
+	authH.userIDsByUserName = make(map[string]*string)
+
+	return authH
+}
+
+// GetUserByUserName : Get user struct by user name
+func (a *AuthHandler) GetUserByUserName(userName string) (user *User, error error) {
+
+	if userID, userIDFound := a.userIDsByUserName[userName]; userIDFound {
+		user = a.UsersByID[*userID]
+		if user == nil {
+			error = errors.New("Error : No user found for ID : '" + *userID + "' !")
+		}
+	} else {
+		error = errors.New("Error : No user found for UserName : '" + userName + "' !")
+	}
+
+	return user, error
+
+}
+
+// TODO : from here --> continue with User and password rule
+
+// func (a *AuthHandler) AddUserRule(regex string) {
+// 	a.userNameRuleRegex = regex
+// }
+//
+// func (a *AuthHandler) AddPasswordRule(regex string) {
+// 	a.passwordRuleRegex = regex
+// }
+//
+// // check if username parameter is a valid username
+// func (a *AuthHandler) CheckUserNameRule(username string) (successful bool, error string) {
+// 	return a.CheckRegexRule(a.userNameRuleRegex, username, "UserName")
+// }
+//
+// // check if password parameter is a valid password
+// func (a *AuthHandler) CheckPasswordRule(password string) (successful bool, error string) {
+// 	return a.CheckRegexRule(a.passwordRuleRegex, password, "Password")
+// }
+//
+// // Check if a value is matching a given regular expression
+// func (a *AuthHandler) CheckRegexRule(regex string, value string, nameOfRule string) (successful bool, error string) {
+//
+// 	// try to match value string againts regex
+// 	matched, err := regexp.MatchString(regex, value)
+//
+// 	// check if regex is a valid regular expression
+// 	if err != nil {
+// 		print("1\n")
+// 		successful = false
+// 		error = "Error : Cannot apply invalid regex rule for " + nameOfRule + " : " + err.Error()
+// 		// check if value matched with regex
+// 	} else if matched {
+// 		print("2\n")
+// 		successful = true
+// 		error = ""
+// 		// check if value does not match with regex
+// 	} else {
+// 		print("3\n" + regex + "xxx" + value)
+// 		successful = false
+// 		error = "Error : " + nameOfRule + " does not comply to rules. Please make sure it fits to the following regular expression : " + regex
+// 	}
+//
+// 	return successful, error
+// }
+
+// TODO : to here --> continue with User and password rule
+
+// CheckIfUserNameIsFree : check if user name is not used yet
+func (a *AuthHandler) CheckIfUserNameIsFree(userName string) (successful bool, error error) {
+	// try to get user by user name
+	user, _ := a.GetUserByUserName(userName)
+
+	// if user was not found everything is fine
+	// otherwise return error
+	if user == nil {
+		successful = true
+		error = nil
+	} else {
+		successful = false
+		error = errors.New("Error : Username '" + userName + "' already used. Please choose a different Username!")
+	}
+
+	return successful, error
+}
+
+// PreSignUpCheck : Do pre checks to verify if user can be created
+func (a *AuthHandler) PreSignUpCheck(userName string, password string) (successful bool, error error) {
+
+	// check if user name or password is not empty
+	if len(userName) > 0 && len(password) > 0 {
+		successful = true
+		error = nil
+	} else {
+		successful = false
+		error = errors.New("Error : Please enter a valid username and password!")
+	}
+
+	// TODO : from here --> continue with User and password rule
+	// if successful {
+	// 	successful, error = a.CheckUserNameRule(username)
+	// }
+	//
+	// if successful {
+	// 	successful, error = a.CheckPasswordRule(password)
+	// }
+	// TODO : to here --> continue with User and password rule
+
+	if successful {
+		successful, error = a.CheckIfUserNameIsFree(userName)
+	}
+
+	return successful, error
+}
+
+// CreateNewUser : Create a new user and add it to the User maps
+func (a *AuthHandler) CreateNewUser(userName string, password string) (successful bool, error error) {
+	var user User
+
+	// set ID and UserName
+	user.ID = uuid.New().String()
+	user.UserName = userName
+
+	// hash and set password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err == nil {
+		user.Password = string(hashedPassword)
+		successful = true
+		error = nil
+	} else {
+		successful = false
+		error = errors.New("Error : Unable to hash password for user '" + userName + "' !")
+	}
+
+	// add new user to user maps
+	if successful {
+		a.UsersByID[user.ID] = &user
+		a.userIDsByUserName[user.UserName] = &user.ID
+	}
+
+	return successful, error
+}
+
+// SignUp : sign up / register a new user
+func (a *AuthHandler) SignUp(userName string, password string) (successful bool, error error) {
+
+	successful, error = a.PreSignUpCheck(userName, password)
+	if successful {
+		successful, error = a.CreateNewUser(userName, password)
+	}
+
+	return successful, error
 }
